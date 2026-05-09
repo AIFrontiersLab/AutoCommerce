@@ -1,36 +1,138 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Autonomous Commerce Copilot
 
-## Getting Started
+**Autonomous Commerce Infrastructure** — a Next.js demo for product discovery, price intelligence, coupon reasoning, and negotiation copy, with a **LangGraph-style** multi-agent trace in the UI. Live Google organic results merge with a seeded mock catalog when [SerpApi](https://serpapi.com) is configured. The app is **guard-railed**: it never completes a purchase and does not promise checkout or legal outcomes.
 
-First, run the development server:
+---
+
+## What you get
+
+| Surface | Description |
+|--------|-------------|
+| **Landing** (`/`) | Product story: Search, Compare, Coupon, Negotiate, Checkout (conceptual pillars). |
+| **Agent runtime** (`/agent`) | Mission prompt, live agent activity, comparison grid, copilot summary, trust and scam signals. |
+| **REST APIs** | Server-side copilot run and optional OpenAI polish. |
+| **WebMCP** (`/api/mcp`) | [Model Context Protocol](https://modelcontextprotocol.io) over **Streamable HTTP** so remote MCP clients can call the same capabilities without exposing API keys in the browser. |
+
+---
+
+## Features
+
+- **Search** — SKU-style discovery over a demo catalog plus optional SerpApi organic hits mapped into normalized listings.
+- **Compare** — Spec match, shipping, value, and overall scoring with enriched product rows.
+- **Coupon** — Promo stack ranking and synthetic discount checks (demo heuristics).
+- **Negotiate** — Tone-aware negotiation drafts with optional OpenAI Responses polish (`OPENAI_API_KEY`).
+- **Trust & safety** — Seller trust narratives, price confidence, fake-discount warnings, and explicit human-approval messaging before any real checkout story.
+
+---
+
+## Architecture
+
+- **Framework:** [Next.js 15](https://nextjs.org) (App Router), React 19, TypeScript, Tailwind CSS 4.
+- **Agents** (orchestrated in `lib/copilotState.ts`): Memory → Research → Comparison → Trust → Coupon → Price intelligence → Negotiation, then final recommendation assembly.
+- **Data:** `lib/mockProducts.ts` seeds listings; `lib/serpWebSearch.ts` + `lib/webResultsToProducts.ts` augment with web results when a Serp key is present.
+- **Persistence (optional):** Supabase-backed memory in `lib/agents/memoryAgent.ts` when `NEXT_PUBLIC_SUPABASE_*` is set.
+
+---
+
+## WebMCP (`/api/mcp`)
+
+Stateless [Streamable HTTP](https://spec.modelcontextprotocol.io/) endpoint using `@modelcontextprotocol/sdk` (`WebStandardStreamableHTTPServerTransport`). Tool definitions live in `lib/webmcp/server.ts`.
+
+| Tool | Purpose |
+|------|---------|
+| `copilot_run` | Full pipeline → `CopilotRunState` JSON (same as `POST /api/copilot/run`). |
+| `polish_prose` | OpenAI Responses copy polish (same behavior as `POST /api/copilot/responses`). |
+| `web_search_organic` | SerpApi organic results (server-side key only). |
+| `catalog_list_seed` | Slice of the seeded mock catalog. |
+
+**Auth:** Set `WEB_MCP_SECRET` and send `Authorization: Bearer <secret>`. If unset, the endpoint is open — use only for local development.
+
+**CORS:** Preflight and response headers are set for MCP clients that run in the browser.
+
+---
+
+## API routes
+
+| Method | Path | Role |
+|--------|------|------|
+| `POST` | `/api/copilot/run` | Run `buildCopilotState(prompt)`; returns `{ ok, state }`. |
+| `POST` | `/api/copilot/responses` | Optional OpenAI polish for negotiation / summary copy. |
+| `GET` / `POST` / `DELETE` | `/api/mcp` | MCP Streamable HTTP session (stateless per request). |
+| `OPTIONS` | `/api/mcp` | CORS preflight. |
+
+---
+
+## Getting started
+
+**Requirements:** Node.js 18+
 
 ```bash
+npm install
+cp .env.example .env.local
+# Edit .env.local — at minimum optional keys below
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) for the landing page, or [http://localhost:3000/agent](http://localhost:3000/agent) for the copilot runtime.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**Production build**
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+**Lint & E2E**
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run lint
+npm run test:e2e
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Environment variables
 
-## Deploy on Vercel
+Copy `.env.example` to `.env.local`. All keys are optional unless you want that capability.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Variable | Used for |
+|----------|-----------|
+| `SERPAPI_API_KEY` (or `SERP_API_KEY`) | Live Google organic results in research. |
+| `OPENAI_API_KEY` | Responses API polish in UI and MCP `polish_prose`. |
+| `OPENAI_RESPONSES_MODEL` | Override default model (e.g. `gpt-4o-mini`). |
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | User memory persistence. |
+| `WEB_MCP_SECRET` | Bearer protection for `/api/mcp`. |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Restart `next dev` after changing env files if values are not picked up.
+
+---
+
+## Project layout (high level)
+
+```
+app/
+  page.tsx              # Landing
+  agent/page.tsx        # Copilot dashboard
+  api/copilot/run/      # Agent pipeline
+  api/copilot/responses/# OpenAI polish
+  api/mcp/              # WebMCP Streamable HTTP
+components/             # UI (e.g. AgentDashboard)
+lib/
+  agents/               # Memory, research, comparison, trust, coupon, price, negotiation
+  copilotState.ts       # Pipeline orchestration
+  webmcp/server.ts      # MCP tool registration
+  mockProducts.ts       # Seeded catalog
+  serpWebSearch.ts      # SerpApi client
+```
+
+---
+
+## Disclaimer
+
+This repository is a **demonstration**. Marketplace data is mocked or derived from public search APIs; negotiation text is illustrative. **Do not** treat outputs as financial, legal, or purchasing advice. No autonomous checkout is performed.
+
+---
+
+## License
+
+Private project (`"private": true` in `package.json`). Adjust licensing if you open-source the repo.
