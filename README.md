@@ -73,7 +73,13 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) for the landing page, or [http://localhost:3000/agent](http://localhost:3000/agent) for the copilot runtime.
+Development serves **HTTPS** on port **443** (self-signed certificate via `next dev --experimental-https`), bound to **all interfaces** (`0.0.0.0`) so you can open it from another device on your network, for example [https://10.0.0.151:443](https://10.0.0.151:443) (replace with your machine’s LAN IP).
+
+On the same machine: [https://localhost:443](https://localhost:443) and [https://localhost:443/agent](https://localhost:443/agent).
+
+Your browser will warn about the self-signed cert — use “Advanced” → proceed (or install a local CA via [mkcert](https://github.com/FiloSottile/mkcert) and pass `--experimental-https-key` / `--experimental-https-cert` to `next dev` if you prefer trusted TLS).
+
+On macOS and Linux, binding to port **443** usually requires elevated privileges (for example `sudo npm run dev`). `npm start` (production) still speaks **plain HTTP** on 443; terminate **HTTPS** in front (nginx, Caddy, etc.) or use a platform that provides TLS for you.
 
 **Production build**
 

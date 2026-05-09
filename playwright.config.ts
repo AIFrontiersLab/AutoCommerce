@@ -14,13 +14,15 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: "html",
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: "https://127.0.0.1:443",
+    ignoreHTTPSErrors: true,
     trace: "on-first-retry",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: "npm run dev",
-    url: "http://127.0.0.1:3000",
+    url: "https://127.0.0.1:443",
+    ignoreHTTPSErrors: true,
     reuseExistingServer: !process.env.CI,
   },
 });
